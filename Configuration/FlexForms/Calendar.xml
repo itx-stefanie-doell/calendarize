@@ -287,6 +287,33 @@
 						</TCEforms>
 					</settings.configuration>
 
+					<!-- Category Mode -->
+					<settings.categoryConjunction>
+						<TCEforms>
+							<label>LLL:EXT:calendarize/Resources/Private/Language/locallang.xlf:categoryConjunction</label>
+							<description>LLL:EXT:calendarize/Resources/Private/Language/locallang.xlf:categoryConjunction.description</description>
+							<config>
+								<type>select</type>
+								<renderType>selectSingle</renderType>
+								<items>
+									<numIndex index="0" type="array">
+										<numIndex index="0">LLL:EXT:calendarize/Resources/Private/Language/locallang.xlf:categoryConjunction.all</numIndex>
+										<numIndex index="1">all</numIndex>
+									</numIndex>
+									<numIndex index="1" type="array">
+										<numIndex index="0">LLL:EXT:calendarize/Resources/Private/Language/locallang.xlf:categoryConjunction.or</numIndex>
+										<numIndex index="1">or</numIndex>
+									</numIndex>
+									<numIndex index="2" type="array">
+										<numIndex index="0">LLL:EXT:calendarize/Resources/Private/Language/locallang.xlf:categoryConjunction.and</numIndex>
+										<numIndex index="1">and</numIndex>
+									</numIndex>
+								</items>
+								<default>or</default>
+							</config>
+						</TCEforms>
+					</settings.categoryConjunction>
+
 					<!-- Calendar configuration -->
 					<settings.sortBy>
 						<TCEforms>

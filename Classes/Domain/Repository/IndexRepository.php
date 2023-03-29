@@ -231,61 +231,7 @@ class IndexRepository extends AbstractRepository
         );
 
         if ($event->getIndexIds()) {
-            $indexIds = [];
-            $tabledIndexIds = [];
-            foreach ($event->getIndexIds() as $key => $indexId) {
-                if (\is_int($key)) {
-                    // Plain integers (= deprecated old way, stays in for compatibility)
-                    $indexIds[] = $indexId;
-                } elseif (\is_string($key) && \is_array($indexId)) {
-                    // Table based values with array of foreign uids
-                    $tabledIndexIds[] = [
-                        'table' => $key,
-                        'indexIds' => $indexId,
-                    ];
-                } elseif (\is_string($key) && \is_int($indexId)) {
-                    // Table based single return value
-                    $tabledIndexIds[] = [
-                         'table' => $key,
-                         'indexIds' => [$indexId],
-                    ];
-                }
-            }
-            $foreignIdConstraints = [];
-            // Old way, just accept foreignUids as provided, not checking the table.
-            // This has a caveat solved with the $tabledIndexIds
-            if ($indexIds) {
-                $foreignIdConstraints[] = $query->in('foreignUid', $indexIds);
-            }
-            if ($tabledIndexIds) {
-                // Handle each table individually on the filters
-                // allowing for uids to be table specific.
-                // If 1,3,5 on table_a are ok and 4,5,7 on table_b are ok,
-                // don't show uid 1 from table_b
-                foreach ($tabledIndexIds as $tabledIndexId) {
-                    if ($tabledIndexId['indexIds']) {
-                        // This table has used filters and returned some allowed uids.
-                        // Providing non-existing values e.g.: -1 will remove everything
-                        // unless other elements have found elements with the filters
-                        $foreignIdConstraints[] = $query->logicalAnd([
-                            $query->equals('foreignTable', $tabledIndexId['table']),
-                            $query->in('foreignUid', $tabledIndexId['indexIds']),
-                        ]);
-                    }
-                }
-            }
-            if (\count($foreignIdConstraints) > 1) {
-                // Multiple valid tables should be grouped by "OR"
-                // so it's either table_a with uids 1,3,4 OR table_b with uids 1,5,7
-                $foreignIdConstraint = $query->logicalOr($foreignIdConstraints);
-            } else {
-                // Single constraint or no constraint should just be simply added
-                $foreignIdConstraint = array_shift($foreignIdConstraints);
-            }
-            // If any foreignUid constraint survived, use it on the query
-            if ($foreignIdConstraint) {
-                $constraints[] = $foreignIdConstraint;
-            }
+            $this->addForeignIdConstraints($constraints, $query, $event->getIndexIds());
         }
         if ($event->isEmptyPreResult()) {
             $constraints[] = $query->equals('uid', '-1');
@@ -644,7 +590,7 @@ class IndexRepository extends AbstractRepository
         $this->eventDispatcher->dispatch($event);
 
         if ($event->getIndexIds()) {
-            $constraints[] = $query->in('foreignUid', $event->getIndexIds());
+            $this->addForeignIdConstraints($constraints, $query, $event->getIndexIds());
         }
 
         return $constraints;
@@ -787,5 +733,68 @@ class IndexRepository extends AbstractRepository
             $field . 'Date' => $direction,
             $field . 'Time' => $direction,
         ];
+    }
+
+    protected function addForeignIdConstraints(array &$constraints, QueryInterface $query, array $indexArray)
+    {
+        $indexIds = [];
+        $tabledIndexIds = [];
+        foreach ($indexArray as $key => $indexId) {
+            if (\is_int($key)) {
+                // Plain integers (= deprecated old way, stays in for compatibility)
+                $indexIds[] = $indexId;
+                @trigger_error(
+                    'Using only foreign ID constraint without a table is deprecated and will be removed in a later version.',
+                    \E_USER_DEPRECATED
+                );
+            } elseif (\is_string($key) && \is_array($indexId)) {
+                // Table based values with array of foreign uids
+                $tabledIndexIds[] = [
+                    'table' => $key,
+                    'indexIds' => $indexId,
+                ];
+            } elseif (\is_string($key) && \is_int($indexId)) {
+                // Table based single return value
+                $tabledIndexIds[] = [
+                    'table' => $key,
+                    'indexIds' => [$indexId],
+                ];
+            }
+        }
+        $foreignIdConstraints = [];
+        // Old way, just accept foreignUids as provided, not checking the table.
+        // This has a caveat solved with the $tabledIndexIds
+        if ($indexIds) {
+            $foreignIdConstraints[] = $query->in('foreignUid', $indexIds);
+        }
+        if ($tabledIndexIds) {
+            // Handle each table individually on the filters
+            // allowing for uids to be table specific.
+            // If 1,3,5 on table_a are ok and 4,5,7 on table_b are ok,
+            // don't show uid 1 from table_b
+            foreach ($tabledIndexIds as $tabledIndexId) {
+                if ($tabledIndexId['indexIds']) {
+                    // This table has used filters and returned some allowed uids.
+                    // Providing non-existing values e.g.: -1 will remove everything
+                    // unless other elements have found elements with the filters
+                    $foreignIdConstraints[] = $query->logicalAnd([
+                        $query->equals('foreignTable', $tabledIndexId['table']),
+                        $query->in('foreignUid', $tabledIndexId['indexIds']),
+                    ]);
+                }
+            }
+        }
+        if (\count($foreignIdConstraints) > 1) {
+            // Multiple valid tables should be grouped by "OR"
+            // so it's either table_a with uids 1,3,4 OR table_b with uids 1,5,7
+            $foreignIdConstraint = $query->logicalOr($foreignIdConstraints);
+        } else {
+            // Single constraint or no constraint should just be simply added
+            $foreignIdConstraint = array_shift($foreignIdConstraints);
+        }
+        // If any foreignUid constraint survived, use it on the query
+        if ($foreignIdConstraint) {
+            $constraints['foreignIds'] = $foreignIdConstraint;
+        }
     }
 }
